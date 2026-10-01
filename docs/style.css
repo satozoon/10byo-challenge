@@ -1,0 +1,633 @@
+/* ==========================================================================
+   10秒チャレンジ - style.css
+   デザインコンセプト：深夜のゲームセンター筐体。
+   背景は闇に近いネイビー、走査線とグリッドでブラウン管の質感を出し、
+   数字とアクセントだけがネオンで発光する。
+   カラートークン：
+     --c-bg        : ベース背景（紺〜紫の深いグラデーション）
+     --c-cyan      : メインネオン（デジタル数字の基準色）
+     --c-magenta   : サブネオン（強調・警告）
+     --c-gold      : ランク／実績演出
+     --c-panel     : パネル面の半透明ネイビー
+   タイポグラフィ：
+     見出し・数字 = Orbitron（デジタル筐体の書体）
+     本文（日本語）= Noto Sans JP
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap');
+
+:root {
+  /* --- ベースパレット（ショップ未購入時のデフォルト） --- */
+  --c-bg-1: #0a0e27;
+  --c-bg-2: #1a1035;
+  --c-bg-3: #150a2b;
+  --c-cyan: #00f0ff;
+  --c-magenta: #ff2ee0;
+  --c-purple: #7b2ff7;
+  --c-gold: #ffd23f;
+  --c-panel: rgba(15, 12, 40, 0.72);
+  --c-panel-border: rgba(0, 240, 255, 0.25);
+  --c-text: #eef1ff;
+  --c-text-dim: #8b91c9;
+
+  /* --- ショップで差し替わる変数（JSがinline styleで上書き） --- */
+  --digit-color: var(--c-cyan);
+  --digit-glow: var(--c-cyan);
+  --button-color: var(--c-magenta);
+  --bg-grad: radial-gradient(circle at 20% 0%, var(--c-bg-2), var(--c-bg-1) 55%),
+             radial-gradient(circle at 80% 100%, var(--c-bg-3), transparent 60%);
+
+  --radius-lg: 22px;
+  --radius-md: 14px;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* ============================== リセット ============================== */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body {
+  height: 100%;
+  margin: 0;
+  overscroll-behavior: none;
+}
+body {
+  font-family: 'Noto Sans JP', system-ui, sans-serif;
+  color: var(--c-text);
+  background: var(--bg-grad), var(--c-bg-1);
+  background-attachment: fixed;
+  overflow: hidden; /* ゲームは画面単位で切り替えるためスクロール不要 */
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+button {
+  font-family: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+}
+h1, h2, p, dl, dd, dt, ol { margin: 0; padding: 0; }
+
+/* ============================== 背景演出 ============================== */
+.bg-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.bg-grid {
+  position: absolute;
+  inset: -10% -10%;
+  background-image:
+    linear-gradient(rgba(0, 240, 255, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 240, 255, 0.06) 1px, transparent 1px);
+  background-size: 42px 42px;
+  transform: perspective(500px) rotateX(60deg);
+  transform-origin: bottom;
+  opacity: 0.5;
+}
+.bg-scanline {
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.035) 0px,
+    rgba(255, 255, 255, 0.035) 1px,
+    transparent 2px,
+    transparent 4px
+  );
+  mix-blend-mode: overlay;
+}
+.bg-glow {
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.28;
+  animation: drift 18s ease-in-out infinite alternate;
+}
+.bg-glow--a { background: var(--c-purple); top: -20vmax; left: -20vmax; }
+.bg-glow--b { background: var(--c-magenta); bottom: -25vmax; right: -20vmax; animation-delay: -9s; }
+
+@keyframes drift {
+  from { transform: translate(0, 0) scale(1); }
+  to   { transform: translate(6vmax, 4vmax) scale(1.15); }
+}
+
+/* ============================== レイアウト ============================== */
+.app {
+  position: relative;
+  z-index: 1;
+  height: 100dvh;
+  padding-top: calc(var(--safe-top) + 10px);
+  padding-bottom: calc(var(--safe-bottom) + 10px);
+  display: flex;
+  flex-direction: column;
+}
+
+.hud {
+  position: absolute;
+  top: calc(var(--safe-top) + 10px);
+  right: 14px;
+  z-index: 5;
+  display: flex;
+  gap: 8px;
+}
+.hud__item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.85rem;
+  backdrop-filter: blur(6px);
+}
+.hud__icon { font-size: 0.9em; }
+
+/* 画面切り替え：1つだけ表示、他はdisplay:none */
+.screen {
+  display: none;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px 20px;
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+  overflow-y: auto;
+}
+.screen--active {
+  display: flex;
+  animation: screen-in 0.35s ease both;
+}
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.screen-title {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.3rem, 5vw, 1.8rem);
+  letter-spacing: 0.12em;
+  color: var(--c-cyan);
+  text-shadow: 0 0 12px var(--c-cyan), 0 0 28px rgba(0, 240, 255, 0.5);
+}
+
+/* ============================== タイトル画面 ============================== */
+.title-wrap { text-align: center; margin-top: 4vh; }
+.logo { display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.logo__num {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(4.5rem, 26vw, 7rem);
+  color: var(--c-cyan);
+  text-shadow:
+    0 0 10px var(--c-cyan),
+    0 0 30px var(--c-cyan),
+    0 0 60px rgba(0, 240, 255, 0.6);
+  animation: pulse-glow 2.4s ease-in-out infinite;
+}
+.logo__sub {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.1rem, 5vw, 1.5rem);
+  letter-spacing: 0.35em;
+  margin-top: 6px;
+  color: var(--c-magenta);
+  text-shadow: 0 0 10px var(--c-magenta);
+}
+.tagline {
+  margin-top: 14px;
+  color: var(--c-text-dim);
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+}
+@keyframes pulse-glow {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.25); }
+}
+
+.menu-list { display: flex; flex-direction: column; gap: 12px; width: 100%; max-width: 320px; }
+
+/* ============================== 共通ボタン ============================== */
+.btn {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 15px 20px;
+  border-radius: var(--radius-md);
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+.btn:active { transform: scale(0.95); }
+.btn:disabled { opacity: 0.35; pointer-events: none; }
+
+.btn--primary {
+  background: linear-gradient(135deg, var(--c-cyan), var(--c-purple));
+  color: #04101a;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.45), 0 6px 0 rgba(0,0,0,0.35);
+}
+.btn--lg { padding: 18px 24px; font-size: 1.1rem; }
+
+.btn--outline {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  color: var(--c-text);
+}
+.btn--outline:active { border-color: var(--c-cyan); }
+
+.btn--ghost {
+  color: var(--c-text-dim);
+  padding: 10px 16px;
+  font-size: 0.85rem;
+}
+.btn--small { font-size: 0.8rem; padding: 8px 14px; }
+
+.btn--start {
+  flex: 1;
+  background: linear-gradient(135deg, #37e07a, #0fb35a);
+  color: #012a12;
+  box-shadow: 0 0 20px rgba(55, 224, 122, 0.5), 0 6px 0 rgba(0,0,0,0.35);
+  font-size: 1.1rem;
+  padding: 20px;
+}
+.btn--stop {
+  flex: 1;
+  background: linear-gradient(135deg, #ff5470, var(--button-color, #ff2ee0));
+  color: #2a0212;
+  box-shadow: 0 0 20px rgba(255, 84, 112, 0.5), 0 6px 0 rgba(0,0,0,0.35);
+  font-size: 1.1rem;
+  padding: 20px;
+}
+.button-row { display: flex; gap: 14px; width: 100%; max-width: 340px; }
+
+/* ============================== モード選択 ============================== */
+.mode-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  width: 100%;
+}
+.mode-card {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: var(--radius-lg);
+  padding: 18px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+  cursor: pointer;
+  transition: transform 0.12s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.mode-card:active { transform: scale(0.95); }
+.mode-card:hover, .mode-card:focus-visible {
+  border-color: var(--c-cyan);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.35);
+}
+.mode-card__icon { font-size: 1.8rem; }
+.mode-card__name {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--c-cyan);
+}
+.mode-card__desc { font-size: 0.72rem; color: var(--c-text-dim); }
+
+/* ============================== ゲーム画面 ============================== */
+.game-topbar {
+  width: 100%;
+  max-width: 340px;
+  display: flex;
+  justify-content: space-between;
+  font-family: 'Orbitron', sans-serif;
+  font-size: 0.8rem;
+  color: var(--c-text-dim);
+  letter-spacing: 0.08em;
+}
+.game-topbar__combo { color: var(--c-gold); }
+
+.target-badge {
+  font-family: 'Orbitron', sans-serif;
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: 999px;
+  padding: 8px 18px;
+  font-size: 0.95rem;
+  color: var(--c-text-dim);
+}
+.target-badge span { color: var(--c-gold); font-weight: 700; }
+.target-badge.is-hidden span { color: var(--c-magenta); }
+
+.timer-wrap {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  justify-content: center;
+}
+.timer {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(3.6rem, 22vw, 6rem);
+  color: var(--digit-color);
+  text-shadow: 0 0 12px var(--digit-glow), 0 0 34px var(--digit-glow);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  transition: color 0.2s ease;
+}
+.timer__unit {
+  font-family: 'Orbitron', sans-serif;
+  color: var(--c-text-dim);
+  font-size: 1rem;
+}
+.timer.is-pop { animation: timer-pop 0.18s ease; }
+@keyframes timer-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+  100% { transform: scale(1); }
+}
+
+.stage-badge {
+  font-family: 'Orbitron', sans-serif;
+  color: var(--c-magenta);
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+}
+
+/* ============================== 結果画面 ============================== */
+.result-panel {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: var(--radius-lg);
+  padding: 26px 22px;
+  width: 100%;
+  max-width: 340px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.judgement {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(1.6rem, 8vw, 2.4rem);
+  letter-spacing: 0.08em;
+  animation: judgement-in 0.4s cubic-bezier(.2,1.4,.4,1) both;
+}
+.judgement--perfect   { color: var(--c-gold); text-shadow: 0 0 16px var(--c-gold), 0 0 40px var(--c-gold); }
+.judgement--excellent { color: var(--c-cyan); text-shadow: 0 0 14px var(--c-cyan); }
+.judgement--great      { color: #37e07a; text-shadow: 0 0 12px #37e07a; }
+.judgement--good        { color: #ffb84d; text-shadow: 0 0 10px #ffb84d; }
+.judgement--miss         { color: var(--c-text-dim); }
+@keyframes judgement-in {
+  0% { opacity: 0; transform: scale(0.5) rotate(-6deg); }
+  60% { opacity: 1; transform: scale(1.12) rotate(2deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+.result-score {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.2rem;
+  font-weight: 700;
+  color: var(--c-text);
+}
+.result-score__unit { font-size: 1rem; color: var(--c-text-dim); margin-left: 4px; }
+
+.rank-badge {
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: 1.4rem;
+  padding: 4px 22px;
+  border-radius: 999px;
+  border: 2px solid var(--c-gold);
+  color: var(--c-gold);
+  text-shadow: 0 0 10px var(--c-gold);
+  animation: rank-in 0.5s ease 0.15s both;
+}
+@keyframes rank-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.8); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.result-detail {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin-top: 6px;
+  font-size: 0.82rem;
+}
+.result-detail div { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--c-panel-border); padding-bottom: 4px; }
+.result-detail dt { color: var(--c-text-dim); }
+.result-detail dd { font-family: 'Orbitron', sans-serif; }
+
+.result-endless { font-family: 'Orbitron', sans-serif; color: var(--c-magenta); margin-top: 4px; }
+
+/* ============================== デイリー画面 ============================== */
+.daily-date { color: var(--c-text-dim); font-size: 0.85rem; letter-spacing: 0.1em; }
+.daily-card {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 100%;
+  max-width: 320px;
+  text-align: center;
+}
+.daily-card__label { color: var(--c-text-dim); font-size: 0.85rem; }
+.daily-card__time {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 2.4rem;
+  font-weight: 900;
+  color: var(--c-cyan);
+  text-shadow: 0 0 14px var(--c-cyan);
+  margin: 8px 0;
+}
+.daily-card__streak { color: var(--c-gold); font-size: 0.9rem; }
+
+/* ============================== ショップ画面 ============================== */
+.shop-coins { font-family: 'Orbitron', sans-serif; color: var(--c-gold); }
+.shop-tabs { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+.shop-tab {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 0.78rem;
+  color: var(--c-text-dim);
+}
+.shop-tab--active { color: var(--c-bg-1); background: var(--c-cyan); border-color: var(--c-cyan); }
+
+.shop-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  width: 100%;
+}
+.shop-item {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: var(--radius-md);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  text-align: center;
+}
+.shop-item__swatch {
+  width: 100%;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.15);
+}
+.shop-item__name { font-size: 0.78rem; }
+.shop-item__price { font-family: 'Orbitron', sans-serif; font-size: 0.75rem; color: var(--c-gold); }
+.shop-item__btn {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  font-size: 0.72rem;
+  background: var(--c-cyan);
+  color: var(--c-bg-1);
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 700;
+}
+.shop-item__btn[data-state="owned"] { background: rgba(255,255,255,0.12); color: var(--c-text-dim); }
+.shop-item__btn[data-state="equipped"] { background: var(--c-gold); color: #2a1c00; }
+.shop-item__btn[data-state="locked"] { background: rgba(255,46,224,0.2); color: var(--c-magenta); }
+
+/* ============================== ランキング画面 ============================== */
+.ranking-list {
+  width: 100%;
+  max-width: 340px;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+.ranking-list li {
+  display: flex;
+  justify-content: space-between;
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 0.85rem;
+  font-family: 'Orbitron', sans-serif;
+}
+.ranking-list li:nth-child(1) { border-color: var(--c-gold); color: var(--c-gold); }
+.ranking-list .rank-empty { justify-content: center; color: var(--c-text-dim); font-family: 'Noto Sans JP', sans-serif; }
+
+/* ============================== 記録画面 ============================== */
+.record-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; }
+.record-card {
+  background: var(--c-panel);
+  border: 1px solid var(--c-panel-border);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  text-align: center;
+}
+.record-card__label { font-size: 0.75rem; color: var(--c-text-dim); }
+.record-card__value {
+  font-family: 'Orbitron', sans-serif;
+  font-size: 1.6rem;
+  font-weight: 700;
+  color: var(--c-cyan);
+  text-shadow: 0 0 10px var(--c-cyan);
+  margin-top: 4px;
+}
+
+/* ============================== 演出：コンボフラッシュ ============================== */
+.combo-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: 900;
+  font-size: clamp(2rem, 12vw, 3.6rem);
+  color: var(--c-gold);
+  text-shadow: 0 0 20px var(--c-gold), 0 0 50px var(--c-gold);
+  opacity: 0;
+}
+.combo-flash.is-active {
+  animation: combo-flash-anim 0.9s cubic-bezier(.2,1.6,.3,1) both;
+}
+@keyframes combo-flash-anim {
+  0% { opacity: 0; transform: scale(0.4) rotate(-8deg); }
+  25% { opacity: 1; transform: scale(1.15) rotate(3deg); }
+  40% { transform: scale(1) rotate(0); }
+  80% { opacity: 1; }
+  100% { opacity: 0; transform: scale(1.05); }
+}
+
+/* ============================== 演出：紙吹雪 ============================== */
+.confetti-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 35;
+  pointer-events: none;
+  overflow: hidden;
+}
+.confetti-piece {
+  position: absolute;
+  top: -10px;
+  width: 8px;
+  height: 14px;
+  opacity: 0.95;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(.4,0,.6,1);
+  animation-fill-mode: forwards;
+}
+@keyframes confetti-fall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(600deg); opacity: 0; }
+}
+
+/* ============================== 演出：画面シェイク ============================== */
+.app.is-shaking { animation: shake 0.35s ease; }
+@keyframes shake {
+  10%, 90% { transform: translateX(-2px); }
+  20%, 80% { transform: translateX(4px); }
+  30%, 50%, 70% { transform: translateX(-8px); }
+  40%, 60% { transform: translateX(8px); }
+}
+
+/* ============================== レスポンシブ調整 ============================== */
+@media (max-width: 340px) {
+  .mode-card__desc { display: none; }
+}
+@media (min-width: 700px) {
+  .app { max-width: 480px; margin: 0 auto; }
+}
+
+/* ============================== アクセシビリティ ============================== */
+:focus-visible {
+  outline: 2px solid var(--c-cyan);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
